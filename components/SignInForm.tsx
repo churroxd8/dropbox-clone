@@ -43,7 +43,7 @@ export default function SignInForm(){
         try {
             const result = await signIn.create({
                 identifier: data.identifier,
-                password: data.password
+                password: data.password,
             })
 
             if(result.status === "complete"){
