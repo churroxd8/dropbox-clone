@@ -30,7 +30,7 @@ export default function SignInForm(){
         resolver: zodResolver(signInSchema),
         defaultValues: {
             identifier: "",
-            password: ""
+            password: "",
         }
     })
 
