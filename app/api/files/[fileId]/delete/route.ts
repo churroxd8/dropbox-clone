@@ -17,8 +17,7 @@ export async function DELETE(
     props: { params: Promise<{ fileId: string }> }
 ) {
     try {
-        const { userId } = await auth()
-
+        const { userId } = await auth();
         if (!userId) {
             return NextResponse.json(
                 { error: "Unauthorized!" },
@@ -30,12 +29,12 @@ export async function DELETE(
 
         if (!fileId) {
             return NextResponse.json(
-                { error: "File ID is required!" },
+                { error: "A File ID is required!" },
                 { status: 400 }
             );
         }
 
-        // Getting the file to delete
+        // Time to delete the file
         const [file] = await db
             .select()
             .from(files)
@@ -45,15 +44,15 @@ export async function DELETE(
                     eq(files.userId, userId)
                 )
             );
-        
-        if (!file) {
+
+        if(!file) {
             return NextResponse.json(
-                { error: "File not found!" },
+                { error: "File not found" },
                 { status: 404 }
             );
         }
 
-        // Deleting the file from ImageKit if it's not a folder
+        // Delete the file from ImageKit in case that is not a folder
         if (!file.isFolder) {
             try {
                 let imagekitFileId = null;
@@ -74,18 +73,45 @@ export async function DELETE(
                             limit: 1,
                         });
 
-                        if (searchResults && searchResults.length > 0) {
-                            
+                        if (
+                            searchResults &&
+                            searchResults.length > 0 &&
+                            "fileId" in searchResults[0]
+                        ) {
+                            await imagekit.deleteFile((searchResults[0] as { fileId: string }).fileId);
+                        } else {
+                            await imagekit.deleteFile(imagekitFileId);
                         }
-                    } catch (error) {
-                        
+                    } catch (searchError) {
+                        console.error(`Error searching for file in Imagekit:`, searchError);
+                        await imagekit.deleteFile(imagekitFileId);
                     }
                 }
             } catch (error) {
-                
+                console.error(`Error deleting file ${fileId} from ImageKit:`, error);
             }
         }
+
+        // Delete the file from the database
+        const [deletedFile] = await db
+            .delete(files)
+            .where(and(
+                eq(files.id, fileId),
+                eq(files.userId, userId)
+            ))
+            .returning()
+
+        return NextResponse.json({
+            sucess: true,
+            messgage: "File deleted successfully",
+            deletedFile,
+        });
+
     } catch (error) {
-        
+        console.error("There was an error while deleting you file:", error);
+        return NextResponse.json(
+            { error: "An unexpected error happened while deleting your file" },
+            { status: 500 }
+        );
     }
 }
